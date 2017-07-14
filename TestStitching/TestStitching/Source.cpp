@@ -28,7 +28,7 @@ int xprevious = 0;
 int yprevious = 0;
 
 
-string folder = "C:/Users/swri11/Documents/UnityProjects/ProceduralTerrain/Assets/ChunkedTerrain/";
+string folder = "C:/Users/swri11/Documents\GitHub/ProceduralTerrainUnityProject/ProceduralTerrain\Assets/ChunkedTerrain/";
 
 int main(int, char* argv[])
 {
