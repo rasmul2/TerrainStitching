@@ -39,18 +39,23 @@ string folder = "C:/Users/swri11/Documents/GitHub/ChunkedTerrain/";
 int main(int, char* argv[])
 {
 
-	const string filename = argv[1];
+	//const string filename = argv[1];
 
-	VideoCapture cap = VideoCapture("http://10.202.17.41:8080/shot.jpg"); 
+	//VideoCapture cap = VideoCapture("http://10.202.17.41:8080/shot.jpg"); 
 	// Check VideoCapture documentation.
-	if (!cap.isOpened())  // check if we succeeded
-		return -1;
+	//if (!cap.isOpened())  // check if we succeeded
+		//return -1;
 
 	Mat frame;
 	Mat totalscan;
 
+	frame = imread("C:/Users/swri11/Documents/GitHub/VLCImages/images.png");
 	
-	cap.read(frame);
+	//cap.read(frame);
+	//if (frame.rows < 312) {
+		//cout << "Resolution is too low for chunking" << endl;
+		//return -1;
+	//}
 	imshow("Frame", frame);
 	//resize(frame, frame, frame.size() / 2, (0, 0), 1);
 	Rect rect = Rect(0, 0, frame.cols, frame.rows/2.5);
@@ -85,15 +90,16 @@ int main(int, char* argv[])
 				Mat temp = totalscan(Rect(0, 0, tempwidth, tempheight));
 				imshow("Temp", temp);
 				imgs.push_back(temp);
-				cap = VideoCapture("http://10.202.17.41:8080/shot.jpg");
-				cap.read(frame);
-				if (!frame.empty()) {
+				frame = imread("C:/Users/swri11/Documents/GitHub/VLCImages/images.png");
+				//cap = VideoCapture("http://10.202.17.41:8080/shot.jpg");
+				//cap.read(frame);
+				//if (!frame.empty()) {
 					//resize(frame, frame, frame.size() / 2, (0, 0), 1);
 					//rotate(frame, frame, ROTATE_90_CLOCKWISE);
 					//Create image frames from capture
 					imgs.push_back(frame);
 					imshow("Frame", frame);
-				}
+				//}
 
 
 
@@ -479,6 +485,9 @@ int main(int, char* argv[])
 
 			}
 			else {
+				if (count == 0) {
+					//attempt to restart the whole thing
+				}
 				tempheight += 50;
 				tempwidth += 50;
 			}
