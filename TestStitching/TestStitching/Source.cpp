@@ -15,8 +15,8 @@
 using namespace cv;
 using namespace std;
 
-const float inlier_threshold = 2.5f; // Distance threshold to identify inliers
-const float nn_match_ratio = 0.8f;   // Nearest neighbor matching ratio
+const float inlier_threshold = 20.5f; // Distance threshold to identify inliers
+const float nn_match_ratio = 50.8f;   // Nearest neighbor matching ratio
 
 vector<Mat> imgs;
 vector<Mat> previous;
@@ -34,6 +34,8 @@ int yprevious = 0;
 int tempwidth = 500;
 int tempheight = 300;
 
+bool missed = false;
+
 string folder = "C:/Users/swri11/Documents/GitHub/ChunkedTerrain/";
 
 int main(int, char* argv[])
@@ -41,10 +43,10 @@ int main(int, char* argv[])
 
 	//const string filename = argv[1];
 
-	//VideoCapture cap = VideoCapture("http://10.202.17.41:8080/shot.jpg"); 
+	VideoCapture cap = VideoCapture("http://10.202.17.41:8080/shot.jpg"); 
 	// Check VideoCapture documentation.
-	//if (!cap.isOpened())  // check if we succeeded
-		//return -1;
+	if (!cap.isOpened())  // check if we succeeded
+		return -1;
 
 	Mat frame;
 	Mat totalscan;
@@ -68,7 +70,6 @@ int main(int, char* argv[])
 	previousrunningdistance = Point2f(0, 0);
 
 	int count = 0;
-	int fillimage = 0;
 	while (true) {
 		if (count < 0) {
 			//cap >> frame;
@@ -108,7 +109,7 @@ int main(int, char* argv[])
 			vector<Mat> outputimages;
 
 			Ptr<AKAZE> akaze = AKAZE::create();
-			for (int k = 0; k < imgs.size(); k++) {
+			for (int k = 0; k < 2; k++) {
 				vector<KeyPoint> keypoint;
 				Mat outputimage = Mat();
 				akaze->detectAndCompute(imgs[k], noArray(), keypoint, outputimage);
@@ -139,7 +140,7 @@ int main(int, char* argv[])
 				}
 			}
 
-			if (query.size() != 0 || train.size() != 0) {
+			if (matched1.size() != 0 || matched2.size() != 0) {
 				Mat output_mask;
 				Mat H = findHomography(query, train, CV_RANSAC, 3, output_mask);
 				vector<Point2f> matchingpoints1, matchingpoints2;
@@ -168,6 +169,8 @@ int main(int, char* argv[])
 					}
 
 				}
+
+/*---------------------------------------------FOR ADDING ON TO TOTALSCAN-----------------------------------------------------*/
 				vector<Point2f> distances;
 				for (int x = 0; x < matchingpoints1.size(); x++) {
 					Point2f distance;
@@ -175,9 +178,9 @@ int main(int, char* argv[])
 					distance.y = matchingpoints1[x].y - matchingpoints2[x].y;
 					distances.push_back(distance);
 				}
+				
 
-
-				if (distances.size() > 0) {
+				if (distances.size() > 0 ) {
 
 					//average distances
 					float xdistance;
@@ -190,12 +193,14 @@ int main(int, char* argv[])
 					xdistance /= distances.size();
 					ydistance /= distances.size();
 
+					
+
 					runningdistance += Point2f(xdistance, ydistance);
 
 
 					cout << "The distances are : " << distances[1].x << "x and " << distances[1].y << endl;
 					cout << "The running distances for the windows edges are : " << runningdistance.x << " " << runningdistance.y;
-					if (xdistance < 0 && ydistance < 0) {
+					if (xdistance< 0 && ydistance < 0) {
 						Mat resize;
 						Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows/2.5);
 						imgs[1] = imgs[1](rect);
@@ -205,12 +210,15 @@ int main(int, char* argv[])
 
 						Mat res;
 
-						drawKeypoints(imgs[0], keypoints[0], imgs[0]);
-						drawKeypoints(imgs[1], keypoints[1], imgs[1]);
-						drawMatches(totalscan, inliers1, imgs[1], inliers2, good_matches, res);
+						if (good_matches.size() > 0) {
+							drawKeypoints(imgs[0], keypoints[0], imgs[0]);
+							drawKeypoints(imgs[1], keypoints[1], imgs[1]);
+							drawMatches(totalscan, inliers1, imgs[1], inliers2, good_matches, res);
+							imshow("Res", res);
+						}
 						imwrite("res.png", resize);
 
-						//imshow("Res", res);
+						
 						totalscan = resize;
 						imgs.clear();
 					}
@@ -219,18 +227,21 @@ int main(int, char* argv[])
 						Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows/2.5);
 						imgs[1] = imgs[1](rect);
 						copyMakeBorder(totalscan, resize, abs(ydistance), 0, 0, abs(xdistance), 0);
-						imgs[1].copyTo(resize(Rect(0, 0, imgs[1].cols, imgs[1].rows)));
+						imgs[1].copyTo(resize(Rect(abs(xdistance), 0, imgs[1].cols, imgs[1].rows)));
 
 						//imshow("Cropped", resize);
 
 						Mat res;
 
-						drawKeypoints(imgs[0], keypoints[0], imgs[0]);
-						drawKeypoints(imgs[1], keypoints[1], imgs[1]);
-						drawMatches(totalscan, inliers1, imgs[1], inliers2, good_matches, res);
+						if (good_matches.size() > 0) {
+							drawKeypoints(imgs[0], keypoints[0], imgs[0]);
+							drawKeypoints(imgs[1], keypoints[1], imgs[1]);
+							drawMatches(totalscan, inliers1, imgs[1], inliers2, good_matches, res);
+							imshow("Res", res);
+						}
 						imwrite("res.png", resize);
 
-						//imshow("Res", res);
+						
 						totalscan = resize;
 						imgs.clear();
 					}
@@ -239,17 +250,20 @@ int main(int, char* argv[])
 						Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows/2.5);
 						imgs[1] = imgs[1](rect);
 						copyMakeBorder(totalscan, resize, 0, abs(ydistance), 0, abs(xdistance), 0);
-						imgs[1].copyTo(resize(Rect(0, 0, imgs[1].cols, imgs[1].rows)));
+						imgs[1].copyTo(resize(Rect(abs(xdistance), abs(ydistance), imgs[1].cols, imgs[1].rows)));
 						//imshow("Cropped", resize);
 
 						Mat res;
 
-						drawKeypoints(imgs[0], keypoints[0], imgs[0]);
-						drawKeypoints(imgs[1], keypoints[1], imgs[1]);
-						drawMatches(totalscan, inliers1, imgs[1], inliers2, good_matches, res);
+						if (good_matches.size() > 0) {
+							drawKeypoints(imgs[0], keypoints[0], imgs[0]);
+							drawKeypoints(imgs[1], keypoints[1], imgs[1]);
+							drawMatches(totalscan, inliers1, imgs[1], inliers2, good_matches, res);
+							imshow("Res", res);
+						}
 						imwrite("res.png", resize);
 
-						//imshow("Res", res);
+						
 						totalscan = resize;
 						imgs.clear();
 					}
@@ -258,16 +272,19 @@ int main(int, char* argv[])
 						Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows/2.5);
 						imgs[1] = imgs[1](rect);
 						copyMakeBorder(totalscan, resize, 0, abs(ydistance), abs(xdistance), 0, 0);
-						imgs[1].copyTo(resize(Rect(0, 0, imgs[1].cols, imgs[1].rows)));
+						imgs[1].copyTo(resize(Rect(0, abs(ydistance), imgs[1].cols, imgs[1].rows)));
 						//imshow("Cropped", resize);
 
 						Mat res;
-						drawKeypoints(imgs[0], keypoints[0], imgs[0]);
-						drawKeypoints(imgs[1], keypoints[1], imgs[1]);
-						drawMatches(totalscan, inliers1, imgs[1], inliers2, good_matches, res);
+						if (good_matches.size() > 0) {
+							drawKeypoints(imgs[0], keypoints[0], imgs[0]);
+							drawKeypoints(imgs[1], keypoints[1], imgs[1]);
+							drawMatches(totalscan, inliers1, imgs[1], inliers2, good_matches, res);
+							imshow("Res", res);
+						}
 						imwrite("res.png", resize);
 
-						//imshow("Res", res);
+						
 						totalscan = resize;
 						imgs.clear();
 					}
@@ -281,218 +298,450 @@ int main(int, char* argv[])
 					cout << "# Inliers:                            \t" << inliers1.size() << endl;
 					cout << "# Inliers Ratio:                      \t" << inlier_ratio << endl;
 					cout << endl;
+
+					runningdistance.x = roundf(runningdistance.x);
+					runningdistance.y = roundf(runningdistance.y);
+
+					cout << "The rounded distance is :" << runningdistance.x << " " << runningdistance.y << endl;
+					cout << totalscan.cols / 312 << " and rows " << totalscan.rows / 312 << endl;
+					//if x is filled out
+
+/*--------------------------------------------------------------------------FOR CHUNKING---------------------------------------------------------------------------------------------*/
+					for (float x = xprevious; x <= totalscan.cols / 312;) {
+						for (float y = yprevious; y <= totalscan.rows / 312;) {
+							//if has expanded
+							cout << "xprevious is :" << xprevious << "yprevious is :" << yprevious << endl;
+							cout << "xfilled is: " << xrowsfilled << "yfilled is :" << yrowsfilled << endl;
+							if (yprevious < yrowsfilled && xprevious < xrowsfilled && yprevious != totalscan.rows / 312 && xprevious != totalscan.cols / 312) {
+								yprevious = yrowsfilled;
+								xprevious = xrowsfilled;
+								cout << "Broke on first" << endl;
+								Mat temp;
+
+								temp = totalscan(Rect(totalscan.cols - 312 * xprevious, totalscan.rows - 312 * yprevious, 312, 312));
+								stringstream ss;
+								ss << folder << "image" << xprevious << " " << yprevious << ".png";
+								string filename = ss.str();
+								imwrite(filename, temp);
+								//imshow(filename, temp);
+
+
+								//check which direction they're moving
+
+								//moving forward
+
+								yrowsfilled++;
+
+								xrowsfilled++;
+
+
+
+								previousrunningdistance = runningdistance;
+							}
+
+							else if (yprevious < yrowsfilled && yprevious != totalscan.rows / 312) {
+								yprevious = yrowsfilled;
+								cout << xprevious << " and y previous: " << yprevious << endl;
+								//if y changed, only add y
+								Mat temp;
+								cout << "Made it here on the right one" << endl;
+								cout << "What does this equal " << int(runningdistance.y) % 312 << endl;
+								temp = totalscan(Rect(totalscan.cols - 312 * xprevious, totalscan.rows - 312 * yprevious, 312, 312));
+								stringstream ss;
+								ss << folder << "image" << xprevious << " " << yprevious << ".png";
+								string filename = ss.str();
+								imwrite(filename, temp);
+								//imshow(filename, temp);
+
+								if (runningdistance.y < previousrunningdistance.y) {
+									//moving forward
+									yrowsfilled++;
+								}
+								else {
+									yprevious--;
+								}
+
+
+								previousrunningdistance = runningdistance;
+							}
+
+							else if (xprevious < xrowsfilled && xprevious != totalscan.cols / 312) {
+								xprevious = xrowsfilled;
+								//if y changed, only add y
+								Mat temp;
+								cout << "Made it here on x" << endl;
+								cout << xprevious << " and y previous: " << yprevious << endl;
+								temp = totalscan(Rect(totalscan.cols - 312 * xprevious, totalscan.rows - 312 * yprevious, 312, 312));
+								stringstream ss;
+								ss << folder << "image" << xprevious << " " << yprevious << ".png";
+								string filename = ss.str();
+								imwrite(filename, temp);
+								//imshow(filename, temp);
+
+								if (runningdistance.x > previousrunningdistance.x) {
+									xrowsfilled++;
+								}
+								else {
+									xprevious--;
+								}
+
+								previousrunningdistance = runningdistance;
+							}
+							y++;
+						}
+						x++;
+
+					}
+
+					//for filling in temp ones around the main one
+					/*for (int i = xprevious; i <= xrowsfilled; i++) {
+					for (int k = yprevious; k <= yrowsfilled; k++) {
+					if (i != xprevious || k != yprevious) {
+					Mat temp(312, 312, frame.type(), Scalar(0, 0, 0));
+					imshow("Should be this size", temp);
+					cout << "Working with temps" << endl;
+					cout << "Right now x and y are: " << i << ' ' << k << endl;
+					if (k == yrowsfilled  && i > 0 && i == xprevious ) {
+					cout << "1" << endl;
+					if (totalscan.rows - 312 * (yrowsfilled - 1) > 0) {
+					Mat part = totalscan(Rect(totalscan.cols - 312 * (xrowsfilled - 1), 0, 312, totalscan.rows - 312 * (yrowsfilled - 1)));
+					if (part.cols > 312 || part.rows > 312) {
+					cout << "Something is wrong in the size" << endl;
+					break;
+					}
+					part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
+					}
+					else {
+					Mat part = totalscan(Rect(totalscan.cols - 312 * (xrowsfilled - 1), 0, 312, totalscan.rows - 312 * (yrowsfilled-2)));
+					if (part.cols > 312 || part.rows > 312) {
+					cout << "Something is wrong in the size" << endl;
+					break;
+					}
+					part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
+					}
+					stringstream ss;
+					ss << folder << "imaget" << i << " " << k << ".png";
+					string filename = ss.str();
+					imwrite(filename, temp);
+					imshow(filename, temp);
+					}
+					else if (i==xrowsfilled && k > 0 && k== yrowsfilled) {
+					cout << "2" << endl;
+					if (totalscan.cols - 312 * (xrowsfilled - 1) > 0) {
+					Mat part = totalscan(Rect(0, totalscan.rows - 312 * (yrowsfilled - 1), totalscan.cols - 312 * (xrowsfilled - 1), 312));
+					if (part.cols > 312 || part.rows > 312) {
+					cout << "Something is wrong in the size" << endl;
+					break;
+					}
+					part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
+					}
+					else {
+					Mat part = totalscan(Rect(0, totalscan.rows - 312 * (yrowsfilled - 1), totalscan.cols - 312 * (xrowsfilled - 2), 312));
+					if (part.cols > 312 || part.rows > 312) {
+					cout << "Something is wrong in the size" << endl;
+					break;
+					}
+					part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
+					}
+					stringstream ss;
+					ss << folder << "imaget" << i << " " << k << ".png";
+					string filename = ss.str();
+					imwrite(filename, temp);
+					imshow(filename, temp);
+					}
+					else if (i == xrowsfilled && k == yrowsfilled && i > 0 && k > 0) {
+					cout << "3" << endl;
+					if (totalscan.rows - 312 * (yrowsfilled - 1) > 0  && totalscan.cols - 312 * (xrowsfilled - 1)) {
+					Mat part = totalscan(Rect(0, 0, totalscan.cols - 312 * (xrowsfilled - 1), totalscan.rows - 312 * (yrowsfilled - 1)));
+					if (part.cols > 312 || part.rows > 312) {
+					cout << "Something is wrong in the size" << endl;
+					break;
+					}
+					part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
+					}
+					else if(totalscan.rows - 312 * (yrowsfilled - 1) <= 0 && totalscan.cols - 312 * (xrowsfilled - 1)){
+					Mat part = totalscan(Rect(0, 0, totalscan.cols - 312 * (xrowsfilled - 1), totalscan.rows - 312 * (yrowsfilled - 2)));
+					if (part.cols > 312 || part.rows > 312) {
+					cout << "Something is wrong in the size" << endl;
+					break;
+					}
+					part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
+					}
+					else {
+					Mat part = totalscan(Rect(0, 0, totalscan.cols - 312 * (xrowsfilled - 2), totalscan.rows - 312 * (yrowsfilled - 2)));
+					if (part.cols > 312 || part.rows > 312) {
+					cout << "Something is wrong in the size" << endl;
+					break;
+					}
+					part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
+					}
+					stringstream ss;
+					ss << folder << "imaget" << xrowsfilled << " " << yrowsfilled << ".png";
+					string filename = ss.str();
+					imwrite(filename, temp);
+					imshow(filename, temp);
+					}
+
+					}
+					}*/
+					count++;
 				}
 				else {
 					cout << "We make it to the skip" << endl;
 					previous.push_back(totalscan);
 					string filename = "previmage";
-					for (int i = 0; i < previous.size(); i++) {
-						filename.append("0");
-					}
+					
 					filename.append(".png");
 					imwrite(filename, totalscan);
-					Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows/2.5);
-					frame = frame(rect);
-					totalscan = frame;
+					//Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows/2.5);
+					//frame = frame(rect);
+					//totalscan = frame;
+
+					vector<Point2f> distances;
+					distances.push_back(previousrunningdistance/count);
+					if (distances.size() > 0) {
+
+						//average distances
+						float xdistance;
+						float ydistance;
+						for (int x = 0; x < distances.size(); x++) {
+							xdistance += distances[x].x;
+							ydistance += distances[x].y;
+						}
+
+						xdistance /= distances.size();
+						ydistance /= distances.size();
+
+
+
+						runningdistance += Point2f(xdistance, ydistance);
+
+
+						cout << "The distances are : " << distances[1].x << "x and " << distances[1].y << endl;
+						cout << "The running distances for the windows edges are : " << runningdistance.x << " " << runningdistance.y;
+						if (xdistance < 0 && ydistance < 0) {
+							Mat resize;
+							Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
+							imgs[1] = imgs[1](rect);
+							copyMakeBorder(totalscan, resize, abs(ydistance), 0, abs(xdistance), 0, 0);
+							imgs[1].copyTo(resize(Rect(0, 0, imgs[1].cols, imgs[1].rows)));
+							//imshow("Cropped", resize);
+						
+							imwrite("res.png", resize);
+
+						
+							totalscan = resize;
+							imgs.clear();
+						}
+						if (xdistance > 0 && ydistance < 0) {
+							Mat resize;
+							Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
+							imgs[1] = imgs[1](rect);
+							copyMakeBorder(totalscan, resize, abs(ydistance), 0, 0, abs(xdistance), 0);
+							imgs[1].copyTo(resize(Rect(abs(xdistance), 0, imgs[1].cols, imgs[1].rows)));
+
+							//imshow("Cropped", resize);
+						
+							imwrite("res.png", resize);
+
+							totalscan = resize;
+							imgs.clear();
+						}
+						if (xdistance > 0 && ydistance > 0) {
+							Mat resize;
+							Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
+							imgs[1] = imgs[1](rect);
+							copyMakeBorder(totalscan, resize, 0, abs(ydistance), 0, abs(xdistance), 0);
+							imgs[1].copyTo(resize(Rect(abs(xdistance), abs(ydistance), imgs[1].cols, imgs[1].rows)));
+							//imshow("Cropped", resize);
+
+							imwrite("res.png", resize);
+
+		
+							totalscan = resize;
+							imgs.clear();
+						}
+						if (xdistance < 0 && ydistance > 0) {
+							Mat resize;
+							Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
+							imgs[1] = imgs[1](rect);
+							copyMakeBorder(totalscan, resize, 0, abs(ydistance), abs(xdistance), 0, 0);
+							imgs[1].copyTo(resize(Rect(0, abs(ydistance), imgs[1].cols, imgs[1].rows)));
+							//imshow("Cropped", resize);
+
+							imwrite("res.png", resize);
+
+							totalscan = resize;
+							imgs.clear();
+						}
+
+						double inlier_ratio = inliers1.size() * 1.0 / matched1.size();
+						cout << "A-KAZE Matching Results" << endl;
+						cout << "*******************************" << endl;
+						cout << "# Keypoints 1:                        \t" << keypoints[0].size() << endl;
+						cout << "# Keypoints 2:                        \t" << keypoints[1].size() << endl;
+						cout << "# Matches:                            \t" << matched1.size() << endl;
+						cout << "# Inliers:                            \t" << inliers1.size() << endl;
+						cout << "# Inliers Ratio:                      \t" << inlier_ratio << endl;
+						cout << endl;
+
+						runningdistance.x = roundf(runningdistance.x);
+						runningdistance.y = roundf(runningdistance.y);
+
+						cout << "The rounded distance is :" << runningdistance.x << " " << runningdistance.y << endl;
+						cout << totalscan.cols / 312 << " and rows " << totalscan.rows / 312 << endl;
+						//if x is filled out
+					}
 					imgs.clear();
 				}
 
-				runningdistance.x = roundf(runningdistance.x);
-				runningdistance.y = roundf(runningdistance.y);
-
-				cout << "The rounded distance is :" << runningdistance.x << " " << runningdistance.y << endl;
-				cout << totalscan.cols / 312 << " and rows " << totalscan.rows / 312 << endl;
-				//if x is filled out
-
-
-				for (float x = xprevious; x <= totalscan.cols / 312;) {
-					for (float y = yprevious; y <= totalscan.rows / 312;) {
-						//if has expanded
-						cout << "xprevious is :" << xprevious << "yprevious is :" << yprevious << endl;
-						cout << "xfilled is: " << xrowsfilled << "yfilled is :" << yrowsfilled << endl;
-						if (yprevious < yrowsfilled && xprevious < xrowsfilled && yprevious != totalscan.rows / 312 && xprevious != totalscan.cols / 312) {
-							yprevious = yrowsfilled;
-							xprevious = xrowsfilled;
-							cout << "Broke on first" << endl;
-							Mat temp;
-
-							temp = totalscan(Rect(totalscan.cols - 312 * xprevious, totalscan.rows - 312 * yprevious, 312, 312));
-							stringstream ss;
-							ss << folder << "image" << xprevious << " " << yprevious << ".png";
-							string filename = ss.str();
-							imwrite(filename, temp);
-							//imshow(filename, temp);
-
-
-							//check which direction they're moving
-
-							//moving forward
-
-							yrowsfilled++;
-
-							xrowsfilled++;
-
-
-
-							previousrunningdistance = runningdistance;
-						}
-
-						else if (yprevious < yrowsfilled && yprevious != totalscan.rows / 312) {
-							yprevious = yrowsfilled;
-							cout << xprevious << " and y previous: " << yprevious << endl;
-							//if y changed, only add y
-							Mat temp;
-							cout << "Made it here on the right one" << endl;
-							cout << "What does this equal " << int(runningdistance.y) % 312 << endl;
-							temp = totalscan(Rect(totalscan.cols - 312 * xprevious, totalscan.rows - 312 * yprevious, 312, 312));
-							stringstream ss;
-							ss << folder << "image" << xprevious << " " << yprevious << ".png";
-							string filename = ss.str();
-							imwrite(filename, temp);
-							//imshow(filename, temp);
-
-							if (runningdistance.y < previousrunningdistance.y) {
-								//moving forward
-								yrowsfilled++;
-							}
-							else {
-								yprevious--;
-							}
-
-
-							previousrunningdistance = runningdistance;
-						}
-
-						else if (xprevious < xrowsfilled && xprevious != totalscan.cols / 312) {
-							xprevious = xrowsfilled;
-							//if y changed, only add y
-							Mat temp;
-							cout << "Made it here on x" << endl;
-							cout << xprevious << " and y previous: " << yprevious << endl;
-							temp = totalscan(Rect(totalscan.cols - 312 * xprevious, totalscan.rows - 312 * yprevious, 312, 312));
-							stringstream ss;
-							ss << folder << "image" << xprevious << " " << yprevious << ".png";
-							string filename = ss.str();
-							imwrite(filename, temp);
-							//imshow(filename, temp);
-
-							if (runningdistance.x > previousrunningdistance.x) {
-								xrowsfilled++;
-							}
-							else {
-								xprevious--;
-							}
-
-							previousrunningdistance = runningdistance;
-						}
-						y++;
-					}
-					x++;
-
-				}
-
-				//for filling in temp ones around the main one
-				/*for (int i = xprevious; i <= xrowsfilled; i++) {
-				for (int k = yprevious; k <= yrowsfilled; k++) {
-				if (i != xprevious || k != yprevious) {
-				Mat temp(312, 312, frame.type(), Scalar(0, 0, 0));
-				imshow("Should be this size", temp);
-				cout << "Working with temps" << endl;
-				cout << "Right now x and y are: " << i << ' ' << k << endl;
-				if (k == yrowsfilled  && i > 0 && i == xprevious ) {
-				cout << "1" << endl;
-				if (totalscan.rows - 312 * (yrowsfilled - 1) > 0) {
-				Mat part = totalscan(Rect(totalscan.cols - 312 * (xrowsfilled - 1), 0, 312, totalscan.rows - 312 * (yrowsfilled - 1)));
-				if (part.cols > 312 || part.rows > 312) {
-				cout << "Something is wrong in the size" << endl;
-				break;
-				}
-				part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
-				}
-				else {
-				Mat part = totalscan(Rect(totalscan.cols - 312 * (xrowsfilled - 1), 0, 312, totalscan.rows - 312 * (yrowsfilled-2)));
-				if (part.cols > 312 || part.rows > 312) {
-				cout << "Something is wrong in the size" << endl;
-				break;
-				}
-				part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
-				}
-				stringstream ss;
-				ss << folder << "imaget" << i << " " << k << ".png";
-				string filename = ss.str();
-				imwrite(filename, temp);
-				imshow(filename, temp);
-				}
-				else if (i==xrowsfilled && k > 0 && k== yrowsfilled) {
-				cout << "2" << endl;
-				if (totalscan.cols - 312 * (xrowsfilled - 1) > 0) {
-				Mat part = totalscan(Rect(0, totalscan.rows - 312 * (yrowsfilled - 1), totalscan.cols - 312 * (xrowsfilled - 1), 312));
-				if (part.cols > 312 || part.rows > 312) {
-				cout << "Something is wrong in the size" << endl;
-				break;
-				}
-				part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
-				}
-				else {
-				Mat part = totalscan(Rect(0, totalscan.rows - 312 * (yrowsfilled - 1), totalscan.cols - 312 * (xrowsfilled - 2), 312));
-				if (part.cols > 312 || part.rows > 312) {
-				cout << "Something is wrong in the size" << endl;
-				break;
-				}
-				part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
-				}
-				stringstream ss;
-				ss << folder << "imaget" << i << " " << k << ".png";
-				string filename = ss.str();
-				imwrite(filename, temp);
-				imshow(filename, temp);
-				}
-				else if (i == xrowsfilled && k == yrowsfilled && i > 0 && k > 0) {
-				cout << "3" << endl;
-				if (totalscan.rows - 312 * (yrowsfilled - 1) > 0  && totalscan.cols - 312 * (xrowsfilled - 1)) {
-				Mat part = totalscan(Rect(0, 0, totalscan.cols - 312 * (xrowsfilled - 1), totalscan.rows - 312 * (yrowsfilled - 1)));
-				if (part.cols > 312 || part.rows > 312) {
-				cout << "Something is wrong in the size" << endl;
-				break;
-				}
-				part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
-				}
-				else if(totalscan.rows - 312 * (yrowsfilled - 1) <= 0 && totalscan.cols - 312 * (xrowsfilled - 1)){
-				Mat part = totalscan(Rect(0, 0, totalscan.cols - 312 * (xrowsfilled - 1), totalscan.rows - 312 * (yrowsfilled - 2)));
-				if (part.cols > 312 || part.rows > 312) {
-				cout << "Something is wrong in the size" << endl;
-				break;
-				}
-				part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
-				}
-				else {
-				Mat part = totalscan(Rect(0, 0, totalscan.cols - 312 * (xrowsfilled - 2), totalscan.rows - 312 * (yrowsfilled - 2)));
-				if (part.cols > 312 || part.rows > 312) {
-				cout << "Something is wrong in the size" << endl;
-				break;
-				}
-				part.copyTo(temp(Rect(312 - part.cols, 312 - part.rows, part.cols, part.rows)));
-				}
-				stringstream ss;
-				ss << folder << "imaget" << xrowsfilled << " " << yrowsfilled << ".png";
-				string filename = ss.str();
-				imwrite(filename, temp);
-				imshow(filename, temp);
-				}
-
-				}
-				}*/
-
+				
 			}
 			else {
 				if (count == 0) {
+					imgs.clear();
 					//attempt to restart the whole thing
+					cout << "Trying to make first match" << endl;
+					Mat frame;
+					Mat totalscan;
+
+					frame = imread("C:/Users/swri11/Documents/GitHub/VLCImages/images.png");
+
+					//cap.read(frame);
+					//if (frame.rows < 312) {
+					//cout << "Resolution is too low for chunking" << endl;
+					//return -1;
+					//}
+					imshow("Frame", frame);
+					//resize(frame, frame, frame.size() / 2, (0, 0), 1);
+					Rect rect = Rect(0, 0, frame.cols, frame.rows / 2.5);
+					frame = frame(rect);
+					//rotate(frame, frame, ROTATE_90_CLOCKWISE);
+					totalscan = frame;
+
+					imshow("Camera_Output", totalscan);
+
+					previousrunningdistance = Point2f(0, 0);
+					count = 0;
 				}
-				tempheight += 50;
-				tempwidth += 50;
+				else {
+					//tempheight += 50;
+					//tempwidth += 50;
+					cout << "We make it to the second skip" << endl;
+					previous.push_back(totalscan);
+					string filename = "previmage";
+				
+					filename.append(".png");
+					imwrite(filename, totalscan);
+					//Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows/2.5);
+					//frame = frame(rect);
+					//totalscan = frame;
+
+
+					vector<Point2f> distances;
+					distances.push_back(previousrunningdistance/count);
+					if (distances.size() > 0) {
+
+						//average distances
+						float xdistance;
+						float ydistance;
+						for (int x = 0; x < distances.size(); x++) {
+							xdistance += distances[x].x;
+							ydistance += distances[x].y;
+						}
+
+						xdistance /= distances.size();
+						ydistance /= distances.size();
+
+
+
+						runningdistance += Point2f(xdistance, ydistance);
+
+
+						cout << "The distances are : " << distances[1].x << "x and " << distances[1].y << endl;
+						cout << "The running distances for the windows edges are : " << runningdistance.x << " " << runningdistance.y;
+						if (xdistance < 0 && ydistance < 0) {
+							Mat resize;
+							Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
+							imgs[1] = imgs[1](rect);
+							copyMakeBorder(totalscan, resize, abs(ydistance), 0, abs(xdistance), 0, 0);
+							imgs[1].copyTo(resize(Rect(0, 0, imgs[1].cols, imgs[1].rows)));
+							//imshow("Cropped", resize);
+
+							imwrite("res.png", resize);
+
+							totalscan = resize;
+							imgs.clear();
+						}
+						if (xdistance > 0 && ydistance < 0) {
+							Mat resize;
+							Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
+							imgs[1] = imgs[1](rect);
+							copyMakeBorder(totalscan, resize, abs(ydistance), 0, 0, abs(xdistance), 0);
+							imgs[1].copyTo(resize(Rect(0, abs(ydistance), imgs[1].cols, imgs[1].rows)));
+
+							//imshow("Cropped", resize);
+
+						
+							imwrite("res.png", resize);
+
+							totalscan = resize;
+							imgs.clear();
+						}
+						if (xdistance > 0 && ydistance > 0) {
+							Mat resize;
+							Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
+							imgs[1] = imgs[1](rect);
+							copyMakeBorder(totalscan, resize, 0, abs(ydistance), 0, abs(xdistance), 0);
+							imgs[1].copyTo(resize(Rect(abs(xdistance), abs(ydistance), imgs[1].cols, imgs[1].rows)));
+							//imshow("Cropped", resize);
+
+							
+							imwrite("res.png", resize);
+
+							totalscan = resize;
+							imgs.clear();
+						}
+						if (xdistance < 0 && ydistance > 0) {
+							Mat resize;
+							Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
+							imgs[1] = imgs[1](rect);
+							copyMakeBorder(totalscan, resize, 0, abs(ydistance), abs(xdistance), 0, 0);
+							imgs[1].copyTo(resize(Rect(0, abs(ydistance), imgs[1].cols, imgs[1].rows)));
+							//imshow("Cropped", resize);
+
+							
+							imwrite("res.png", resize);
+
+							totalscan = resize;
+							imgs.clear();
+						}
+
+						double inlier_ratio = inliers1.size() * 1.0 / matched1.size();
+						cout << "A-KAZE Matching Results" << endl;
+						cout << "*******************************" << endl;
+						cout << "# Keypoints 1:                        \t" << keypoints[0].size() << endl;
+						cout << "# Keypoints 2:                        \t" << keypoints[1].size() << endl;
+						cout << "# Matches:                            \t" << matched1.size() << endl;
+						cout << "# Inliers:                            \t" << inliers1.size() << endl;
+						cout << "# Inliers Ratio:                      \t" << inlier_ratio << endl;
+						cout << endl;
+
+						runningdistance.x = roundf(runningdistance.x);
+						runningdistance.y = roundf(runningdistance.y);
+
+						cout << "The rounded distance is :" << runningdistance.x << " " << runningdistance.y << endl;
+						cout << totalscan.cols / 312 << " and rows " << totalscan.rows / 312 << endl;
+						//if x is filled out
+					}
+
+
+					imgs.clear();
+				}
+				
 			}
 		}
-		char c = cvWaitKey(30);
+		char c = cvWaitKey(5);
 		//if escape key is pressed
 		if (c == 27) {
 			break;
