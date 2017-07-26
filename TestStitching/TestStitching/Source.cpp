@@ -15,8 +15,8 @@
 using namespace cv;
 using namespace std;
 
-const float inlier_threshold = 20.5f; // Distance threshold to identify inliers
-const float nn_match_ratio = 100.8f;   // Nearest neighbor matching ratio
+float inlier_threshold = 8.5f; // Distance threshold to identify inliers
+float nn_match_ratio = 0.8f;   // Nearest neighbor matching ratio
 
 vector<Mat> imgs;
 vector<Mat> previous;
@@ -36,14 +36,16 @@ int tempheight = 300;
 int adjustoffsetx = 0;
 int adjustoffsety = 0;
 
-
-double previousangle = 0;
+bool first = true;
+bool skip = false;
 
 bool missed = false;
 bool rotateThis = false;
 
-int brightness = 0;
-int contrast = 1;
+float brightness = 0;
+float contrast = 1.0;
+
+double requiredratio = 0.9;
 
 float collectiveangle = 0;
 string folder = "C:/Users/swri11/Documents/GitHub/ChunkedTerrain/";
@@ -108,14 +110,15 @@ Mat AddNextImage(vector<Mat> images, vector<Point2f> dist, vector<double> angls,
 
 		runningdistance += Point2f(xdistance, ydistance);
 
-		//cout << "The distances are : " << distances[1].x << "x and " << distances[1].y << endl;
+		cout << "The distances are : " << xdistance << " x and " << ydistance << endl;
+		cout << "The size being divided by is " << dist.size() << endl; 
 		//cout << "The running distances for the windows edges are : " << runningdistance.x << " " << runningdistance.y;
 		if (xdistance< 0 && ydistance < 0) {
 			Mat resize;
 			Rect rect = Rect(0, 0, images[1].cols, images[1].rows / 2.5);
 			images[1] = images[1](rect);
 			if (rotateThis == true) {
-				images[1] = RotateImage(images[1], angls[0]);
+				images[1] = RotateImage(images[1], -angls[0]);
 				//resize = RotateImage(resize , -angles[0]);
 			}
 			copyMakeBorder(scan, resize, abs(ydistance), 0, abs(xdistance), 0, 0);
@@ -125,7 +128,6 @@ Mat AddNextImage(vector<Mat> images, vector<Point2f> dist, vector<double> angls,
 		
 			imwrite("res.png", resize);
 
-
 			scan = resize;
 			images.clear();
 		}
@@ -134,7 +136,7 @@ Mat AddNextImage(vector<Mat> images, vector<Point2f> dist, vector<double> angls,
 			Rect rect = Rect(0, 0, images[1].cols, images[1].rows / 2.5);
 			images[1] = images[1](rect);
 			if (rotateThis == true) {
-				images[1] = RotateImage(images[1], -angls[0]);
+				images[1] = RotateImage(images[1], angls[0]);
 				//resize = RotateImage(resize, angles[0]);
 			}
 			copyMakeBorder(scan, resize, abs(ydistance), 0, 0, abs(xdistance), 0);
@@ -153,7 +155,7 @@ Mat AddNextImage(vector<Mat> images, vector<Point2f> dist, vector<double> angls,
 			Rect rect = Rect(0, 0, images[1].cols, images[1].rows / 2.5);
 			images[1] = images[1](rect);
 			if (rotateThis == true) {
-				images[1] = RotateImage(images[1], -angls[0]);
+				images[1] = RotateImage(images[1], angls[0]);
 				//resize = RotateImage(resize, angles[0]);
 			}
 			copyMakeBorder(scan, resize, 0, abs(ydistance), 0, abs(xdistance), 0);
@@ -174,7 +176,7 @@ Mat AddNextImage(vector<Mat> images, vector<Point2f> dist, vector<double> angls,
 			Rect rect = Rect(0, 0, imgs[1].cols, imgs[1].rows / 2.5);
 			images[1] = images[1](rect);
 			if (rotateThis == true) {
-				images[1] = RotateImage(images[1], angls[0]);
+				images[1] = RotateImage(images[1], -angls[0]);
 				//resize = RotateImage(resize, -angles[0]);
 			}
 			copyMakeBorder(scan, resize, 0, abs(xdistance), abs(xdistance), 0, 0);
@@ -185,8 +187,6 @@ Mat AddNextImage(vector<Mat> images, vector<Point2f> dist, vector<double> angls,
 			imwrite("res.png", resize);
 
 			adjustoffsety += ydistance;
-
-
 
 			scan = resize;
 			images.clear();
@@ -480,6 +480,13 @@ int main(int, char* argv[])
 				previous.clear();
 				cout << "Trying to link two previous up" << endl;
 			}*/
+
+			if (tempwidth > totalscan.cols) {
+				tempwidth = totalscan.cols;
+			}
+			if (tempheight > totalscan.rows) {
+				tempheight = totalscan.rows;
+			}
 			Mat temp = totalscan(Rect(adjustoffsetx, adjustoffsety, tempwidth, tempheight));
 
 
@@ -488,7 +495,7 @@ int main(int, char* argv[])
 			vector<Mat> channelstemp;
 			split(temp, channelstemp);
 
-			//equalizeHist(channelstemp[0], channelstemp[0]);
+			equalizeHist(channelstemp[0], channelstemp[0]);
 
 			merge(channelstemp, temp);
 
@@ -496,7 +503,10 @@ int main(int, char* argv[])
 			temp.convertTo(temp, -1, contrast, brightness);
 
 			imshow("Temp", temp);
-			imgs.push_back(temp);
+			if (skip == false) {
+				imgs.push_back(temp);
+			}
+			
 			if (filename == "") {
 				frame = imread("C:/Users/swri11/Documents/GitHub/VLCImages/images.png");
 			}
@@ -528,13 +538,11 @@ int main(int, char* argv[])
 			}
 
 
-
-
 			vector< vector<KeyPoint>> keypoints;
 			vector<Mat> outputimages;
 
 			Ptr<AKAZE> akaze = AKAZE::create();
-			for (int k = 0; k < 2; k++) {
+			for (int k = 0; k < imgs.size(); k++) {
 				vector<KeyPoint> keypoint;
 				Mat outputimage = Mat();
 				akaze->detectAndCompute(imgs[k], noArray(), keypoint, outputimage);
@@ -542,10 +550,14 @@ int main(int, char* argv[])
 				keypoints.push_back(keypoint);
 			}
 
+			cout << "Here" << endl;
+
 			//have to do this for like every two images i guess
 			BFMatcher matcher(NORM_HAMMING);
 			vector< vector<DMatch> > nn_matches;
-			matcher.knnMatch(outputimages[0], outputimages[1], nn_matches, 2);
+			for (int i = 1; i < outputimages.size(); i++){
+				matcher.knnMatch(outputimages[0], outputimages[i], nn_matches, 2);
+			}
 
 			vector<KeyPoint> matched1, matched2, inliers1, inliers2;
 			vector<DMatch> good_matches;
@@ -565,9 +577,13 @@ int main(int, char* argv[])
 			}
 
 			Mat output_mask;
-			Mat H = findHomography(query, train, CV_RANSAC, 3, output_mask);
-			vector<Point2f> matchingpoints1, matchingpoints2;
+			Mat H;
 
+			if (train.size() != 0 && query.size() != 0) {
+				H = findHomography(query, train, CV_RANSAC, 3, output_mask);
+			}
+			
+			vector<Point2f> matchingpoints1, matchingpoints2;
 			if (H.type() == CV_64FC1 || H.type() == CV_64FC2 || H.type() == CV_32FC1 || H.type() == CV_32FC2) {
 
 				for (unsigned i = 0; i < matched1.size(); i++) {
@@ -591,63 +607,120 @@ int main(int, char* argv[])
 				}
 
 				/*---------------------------------------------FOR ADDING ON TO TOTALSCAN-----------------------------------------------------*/
-				vector<Point2f> distances = GetDistancesAngle(matchingpoints1, matchingpoints2);
-				matchingpoints1.clear();
-				matchingpoints2.clear();
-				
-				vector<double>angles;
-				angles.push_back(distances[distances.size()-1].x);
-
-				totalscan = AddNextImage(imgs, distances, angles, totalscan);
-				imgs.clear();
-				distances.clear();
-				angles.clear();
-				//imshow("Total", totalscan);
 
 				double inlier_ratio = inliers1.size() * 1.0 / matched1.size();
-				cout << "A-KAZE Matching Results" << endl;
-				cout << "*******************************" << endl;
-				cout << "# Keypoints 1:                        \t" << keypoints[0].size() << endl;
-				cout << "# Keypoints 2:                        \t" << keypoints[1].size() << endl;
-				cout << "# Matches:                            \t" << matched1.size() << endl;
-				cout << "# Inliers:                            \t" << inliers1.size() << endl;
-				cout << "# Inliers Ratio:                      \t" << inlier_ratio << endl;
-				cout << endl;
+				if (inlier_ratio > requiredratio) {
+					vector<Point2f> distances = GetDistancesAngle(matchingpoints1, matchingpoints2);
 
-/*--------------------------------------------------------------------------FOR CHUNKING---------------------------------------------------------------------------------------------*/
-				Chunk(totalscan);
 
-			
-				count++;
+					vector<double>angles;
+					angles.push_back(distances[distances.size() - 1].x);
+
+					totalscan = AddNextImage(imgs, distances, angles, totalscan);
+					imgs.clear();
+					distances.clear();
+					angles.clear();
+					//imshow("Total", totalscan);
+
+					cout << "A-KAZE Matching Results" << endl;
+					cout << "*******************************" << endl;
+					cout << "# Keypoints 1:                        \t" << keypoints[0].size() << endl;
+					cout << "# Keypoints 2:                        \t" << keypoints[1].size() << endl;
+					cout << "# Matches:                            \t" << matched1.size() << endl;
+					cout << "# Inliers:                            \t" << inliers1.size() << endl;
+					cout << "# Inliers Ratio:                      \t" << inlier_ratio << endl;
+					cout << endl;
+
+					matchingpoints1.clear();
+					matchingpoints2.clear();
+					keypoints.clear();
+					outputimages.clear();
+					matched1.clear();
+					matched2.clear();
+					inliers1.clear();
+					inliers2.clear();
+					/*--------------------------------------------------------------------------FOR CHUNKING---------------------------------------------------------------------------------------------*/
+					Chunk(totalscan);
+
+
+					count++;
+					first = false;
+					skip = false;
+				}
+				else {
+					matchingpoints1.clear();
+					matchingpoints2.clear();
+					keypoints.clear();
+					outputimages.clear();
+					matched1.clear();
+					matched2.clear();
+					inliers1.clear();
+					inliers2.clear();
+
+					cout << "The size of the compared images is " << imgs.size() << endl;
+					imgs[imgs.size() - 2] = imgs[imgs.size() - 1];
+					imgs.pop_back();
+					skip = true;
+				}
+				
 
 			}
 			else {
-				cout << "No matches found" << endl;
-				previous.push_back(totalscan);
-				string filename = "previmage";
+				if (first == true) {
+					cout << "No matches found" << endl;
+					previous.push_back(totalscan);
+					string filename = "previmage";
 
-				filename.append(".png");
-				imwrite(filename, totalscan);
-				if (filename == "") {
-					frame = imread("C:/Users/swri11/Documents/GitHub/VLCImages/images.png");
+					filename.append(".png");
+					imwrite(filename, totalscan);
+					if (filename == "") {
+						frame = imread("C:/Users/swri11/Documents/GitHub/VLCImages/images.png");
+					}
+					else {
+						cap >> frame;
+						resize(frame, frame, frame.size() / 2, (0, 0), 1);
+						rotate(frame, frame, ROTATE_90_CLOCKWISE);
+						//rotate(frame, frame, ROTATE_180);
+						imshow("FrameSkipped", frame);
+					}
+
+					Rect rect = Rect(0, 0, frame.cols, frame.rows / 2.5);
+					frame = frame(rect);
+
+					totalscan = frame;
+
+					nn_match_ratio += 1.0;
+					contrast += .2;
+					brightness -= 5;
+
+
+					cout << "The current match ratio is " << nn_match_ratio << endl;
+					cout << "The increased contrast is " << contrast << " and decreased brightness is " << brightness;
+
+					adjustoffsetx = 0;
+					adjustoffsety = 0;
+
+					tempwidth += 50;
+					tempheight += 50;
+					imgs.clear();
 				}
 				else {
-					cap >> frame;
-					resize(frame, frame, frame.size() / 2, (0, 0), 1);
-					rotate(frame, frame, ROTATE_90_CLOCKWISE);
-					//rotate(frame, frame, ROTATE_180);
-					imshow("FrameSkipped", frame);
+					matchingpoints1.clear();
+					matchingpoints2.clear();
+					keypoints.clear();
+					outputimages.clear();
+					matched1.clear();
+					matched2.clear();
+					inliers1.clear();
+					inliers2.clear();
+
+					cout << "The size of the compared images is " << imgs.size() << endl;
+					imgs[imgs.size() - 2] = imgs[imgs.size() - 1];
+					imgs.pop_back();
+					skip = true;
 				}
 
-				Rect rect = Rect(0, 0, frame.cols, frame.rows / 2.5);
-				frame = frame(rect);
-
-				totalscan = frame;
-
-				adjustoffsetx = 0;
-				adjustoffsety = 0;
-				imgs.clear();
-
+				
 			}
 			char c = cvWaitKey(5);
 			//if escape key is pressed
