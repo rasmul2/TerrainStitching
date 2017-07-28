@@ -25,8 +25,8 @@ vector < vector<Mat> > Grid;
 
 Point2f runningdistance;
 Point2f previousrunningdistance;
-int xrowsfilled = 1;
-int yrowsfilled = 1;
+int xloc = 0;
+int yloc = 0;
 
 int xprevious = 0;
 int yprevious = 0;
@@ -35,9 +35,13 @@ int tempwidth = 500;
 int tempheight = 300;
 int adjustoffsetx = 0;
 int adjustoffsety = 0;
+int setx = 0;
+int sety = 0;
 
 bool first = true;
 bool skip = false;
+bool xchanged = false;
+bool ychanged = false;
 
 bool missed = false;
 bool rotateThis = false;
@@ -48,6 +52,11 @@ float contrast = 1.0;
 double requiredratio = 0.9;
 
 float collectiveangle = 0;
+
+string movementx = "";
+string previousmovementx = "";
+string movementy = "";
+string previousmovementy = "";
 string folder = "C:/Users/swri11/Documents/GitHub/ChunkedTerrain/";
 
 using namespace cv;
@@ -57,7 +66,6 @@ Mat RotateImage(Mat image, double angle) {
 	if (image.rows > 0) {
 		collectiveangle += angle;
 		if (collectiveangle > 18 || collectiveangle < -18) {
-			angle = -angle;
 			if (collectiveangle > 36 || collectiveangle < -36) {
 				collectiveangle = 0;
 			}
@@ -72,26 +80,14 @@ Mat RotateImage(Mat image, double angle) {
 		double scale = 1;
 		Mat RotationMatrix = getRotationMatrix2D(Point2f(w, h), angle, scale);
 
-		float sin = RotationMatrix.at<uchar>(0, 0);
-		cout << "This is the sin?" << sin << endl;
-		float cos = RotationMatrix.at<uchar>(0, 1);
-		cout << "This is the cos?" << cos << endl;
-
-		float nW = int((h * sin) + (w * cos));
-		float nH = int((h * cos) + (w * sin));
-
-		RotationMatrix.at<uchar>(0, 2) += (nW / 2) - h;
-		RotationMatrix.at<uchar>(1, 2) += (nH / 2) - w;
-
 		warpAffine(image, image, RotationMatrix, image.size(), WARP_INVERSE_MAP, BORDER_TRANSPARENT);
 		RotationMatrix.release();
-		return image;
 	}
 	
 	return image;
 }
 
-Mat AddNextImage(vector<Mat> images, vector<Point2f> dist, vector<double> angls, Mat scan) {
+ Mat AddNextImage(vector<Mat> images, vector<Point2f> dist, vector<double> angls, Mat scan) {
 	if (dist.size() > 0) {
 
 		//average distances
@@ -244,91 +240,74 @@ vector<Point2f> GetDistancesAngle(vector<Point2f> mp1, vector<Point2f> mp2) {
 }
 
 void Chunk(Mat total) {
-	for (float x = xprevious; x <= total.cols / 312;) {
-		for (float y = yprevious; y <= total.rows / 312;) {
-			//if has expanded
-			cout << "xprevious is :" << xprevious << "yprevious is :" << yprevious << endl;
-			cout << "xfilled is: " << xrowsfilled << "yfilled is :" << yrowsfilled << endl;
-			if (yprevious < yrowsfilled && xprevious < xrowsfilled && yprevious != total.rows / 312 && xprevious != total.cols / 312) {
-				yprevious = yrowsfilled;
-				xprevious = xrowsfilled;
-				cout << "Broke on first" << endl;
-				Mat temp;
+	//for the corners
+	cout << "The collective angle is " << collectiveangle << endl;
+	cout << "The totals minus the offsets are " << total.rows - adjustoffsety << " " << total.cols - adjustoffsetx << endl;
+	cout << "Just the offsets are " << adjustoffsety << " " << adjustoffsetx << endl;
+	cout << "The running distances are " << runningdistance.y << ' ' << runningdistance.x << endl;
+	cout << "The Previous running distances are " << previousrunningdistance.y << ' ' << previousrunningdistance.x << endl;
 
-				temp = total(Rect(total.cols - 312 * xprevious, total.rows - 312 * yprevious, 312, 312));
-				stringstream ss;
-				ss << folder << "image" << xprevious << " " << yprevious << ".png";
-				string filename = ss.str();
-				imwrite(filename, temp);
-				//imshow(filename, temp);
+	
 
+	//just a y
+	cout << "The location as recorded is " << xloc << " " << yloc << endl;
+	if (abs(runningdistance.x-previousrunningdistance.x) >= 312 || abs(runningdistance.y - previousrunningdistance.y) >= 312) {
+		/*---------------------------if it fills another in the ydirection-------------------------------*/
+		//look up and down of the current position yloc
+		if (abs(runningdistance.x - previousrunningdistance.x) >= 312) {
+			cout << "Trying to fill a x" << endl;
+			cout << "The adjust of y is " << runningdistance.x << endl;
 
-				//check which direction they're moving
-
-				//moving forward
-
-				yrowsfilled++;
-
-				xrowsfilled++;
-
-
-
-				previousrunningdistance = runningdistance;
+			if (runningdistance.x > previousrunningdistance.x) {
+				xprevious++;
+				xloc++;
+				movementx = "right";
 			}
-
-			else if (yprevious < yrowsfilled && yprevious != total.rows / 312) {
-				yprevious = yrowsfilled;
-				cout << xprevious << " and y previous: " << yprevious << endl;
-				//if y changed, only add y
-				Mat temp;
-				cout << "Made it here on the right one" << endl;
-				cout << "What does this equal " << int(runningdistance.y) % 312 << endl;
-				temp = total(Rect(total.cols - 312 * xprevious, total.rows - 312 * yprevious, 312, 312));
-				stringstream ss;
-				ss << folder << "image" << xprevious << " " << yprevious << ".png";
-				string filename = ss.str();
-				imwrite(filename, temp);
-				//imshow(filename, temp);
-
-				if (runningdistance.y < previousrunningdistance.y) {
-					//moving forward
-					yrowsfilled++;
-				}
-				else {
-					yprevious--;
-				}
-
-
-				previousrunningdistance = runningdistance;
+			else if (runningdistance.x < previousrunningdistance.x) {
+				xprevious--;
+				xloc--;
+				movementx = "left";
 			}
-
-			else if (xprevious < xrowsfilled && xprevious != total.cols / 312) {
-				xprevious = xrowsfilled;
-				//if y changed, only add y
-				Mat temp;
-				cout << "Made it here on x" << endl;
-				cout << xprevious << " and y previous: " << yprevious << endl;
-				temp = total(Rect(total.cols - 312 * xprevious, total.rows - 312 * yprevious, 312, 312));
-				stringstream ss;
-				ss << folder << "image" << xprevious << " " << yprevious << ".png";
-				string filename = ss.str();
-				imwrite(filename, temp);
-				//imshow(filename, temp);
-
-				if (runningdistance.x > previousrunningdistance.x) {
-					xrowsfilled++;
-				}
-				else {
-					xprevious--;
-				}
-
-				previousrunningdistance = runningdistance;
-			}
-			y++;
 		}
-		x++;
+		else {
+			if (runningdistance.y < previousrunningdistance.y) {
+				yprevious++;
+				yloc++;
+				movementy = "up";
+			}
+			else if (runningdistance.y > previousrunningdistance.y) {
+				yprevious--;
+				yloc--;
+				movementy = "down";
+			}
+		}
+		
+		/*--------------------adjustment set for change in direction-----------------------*/
 
+
+		Mat temp;
+		cout << "The current movement is " << movementx << " and the previous movment is " << previousmovementx << endl;
+		cout << "The current movement is " << movementy << " and the previous movment is " << previousmovementy << endl;
+		
+				temp = total(Rect(0, 0, 312, 312));
+		
+
+		
+		stringstream ss;
+		ss << folder << "image" << xloc << " " << yloc << ".png";
+		string filename = ss.str();
+		imwrite(filename, temp);
+
+		if (abs(runningdistance.x - previousrunningdistance.x) >= 312) {
+			previousrunningdistance.x = runningdistance.x;
+		}
+		else {
+			previousrunningdistance.y = runningdistance.y;
+		}
+		previousmovementx = movementx;
+		previousmovementy = movementy;
 	}
+
 }
 
 void GridGrowth() {
@@ -430,6 +409,8 @@ int main(int, char* argv[])
 	Mat frame;
 	Mat totalscan;
 	VideoCapture cap;
+	vector< vector<KeyPoint>> keypoints;
+	vector<Mat> outputimages;
 
 	string filename = "";
 	if (argv[1] != NULL) {
@@ -538,19 +519,31 @@ int main(int, char* argv[])
 			}
 
 
-			vector< vector<KeyPoint>> keypoints;
-			vector<Mat> outputimages;
+			
+			
 
 			Ptr<AKAZE> akaze = AKAZE::create();
-			for (int k = 0; k < imgs.size(); k++) {
-				vector<KeyPoint> keypoint;
-				Mat outputimage = Mat();
-				akaze->detectAndCompute(imgs[k], noArray(), keypoint, outputimage);
-				outputimages.push_back(outputimage);
-				keypoints.push_back(keypoint);
+			if (first == true || skip == true) {
+				for (int k = 0; k < imgs.size(); k++) {
+					vector<KeyPoint> keypoint;
+					Mat outputimage = Mat();
+					akaze->detectAndCompute(imgs[k], noArray(), keypoint, outputimage);
+					outputimages.push_back(outputimage);
+					keypoints.push_back(keypoint);
+				}
+			}
+			else {
+				for (int k = 1; k < imgs.size(); k++) {
+					vector<KeyPoint> keypoint;
+					Mat outputimage = Mat();
+					akaze->detectAndCompute(imgs[k], noArray(), keypoint, outputimage);
+					outputimages.push_back(outputimage);
+					keypoints.push_back(keypoint);
+				}
 			}
 
 			cout << "Here" << endl;
+			cout << "The number of keypoints are " << keypoints.size() << endl;
 
 			//have to do this for like every two images i guess
 			BFMatcher matcher(NORM_HAMMING);
@@ -633,8 +626,10 @@ int main(int, char* argv[])
 
 					matchingpoints1.clear();
 					matchingpoints2.clear();
-					keypoints.clear();
-					outputimages.clear();
+					keypoints[0] = keypoints[1];
+					keypoints.pop_back();
+					outputimages[0] = outputimages[1];
+					outputimages.pop_back();
 					matched1.clear();
 					matched2.clear();
 					inliers1.clear();
@@ -651,14 +646,17 @@ int main(int, char* argv[])
 					matchingpoints1.clear();
 					matchingpoints2.clear();
 					keypoints.clear();
+
 					outputimages.clear();
+
 					matched1.clear();
 					matched2.clear();
 					inliers1.clear();
 					inliers2.clear();
 
-					cout << "The size of the compared images is " << imgs.size() << endl;
+					cout << "The size of the compared images is inside" << imgs.size() << endl;
 					imgs[imgs.size() - 2] = imgs[imgs.size() - 1];
+					//imshow("Image left", imgs[0]);
 					imgs.pop_back();
 					skip = true;
 				}
@@ -692,7 +690,8 @@ int main(int, char* argv[])
 					nn_match_ratio += 1.0;
 					contrast += .2;
 					brightness -= 5;
-
+					keypoints.clear();
+					outputimages.clear();
 
 					cout << "The current match ratio is " << nn_match_ratio << endl;
 					cout << "The increased contrast is " << contrast << " and decreased brightness is " << brightness;
@@ -708,6 +707,7 @@ int main(int, char* argv[])
 					matchingpoints1.clear();
 					matchingpoints2.clear();
 					keypoints.clear();
+
 					outputimages.clear();
 					matched1.clear();
 					matched2.clear();
@@ -717,6 +717,7 @@ int main(int, char* argv[])
 					cout << "The size of the compared images is " << imgs.size() << endl;
 					imgs[imgs.size() - 2] = imgs[imgs.size() - 1];
 					imgs.pop_back();
+
 					skip = true;
 				}
 
