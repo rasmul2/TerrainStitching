@@ -30,6 +30,8 @@ int yloc = 0;
 
 int xprevious = 0;
 int yprevious = 0;
+int previousrows = 312;
+int previouscols = 312;
 
 int tempwidth = 500;
 int tempheight = 300;
@@ -45,6 +47,7 @@ bool ychanged = false;
 
 bool missed = false;
 bool rotateThis = false;
+bool firstchunk = true;
 
 float brightness = 0;
 float contrast = 1.0;
@@ -53,11 +56,9 @@ double requiredratio = 0.9;
 
 float collectiveangle = 0;
 
-string movementx = "";
-string previousmovementx = "";
-string movementy = "";
-string previousmovementy = "";
-string folder = "C:/Users/swri11/Documents/GitHub/ChunkedTerrain/";
+string movement = "";
+string previousmovement = "";
+string folder = "C:/Users/Loki Rasmussen/Documents/GitHub/ChunkedTerrain/";
 
 using namespace cv;
 using namespace std;
@@ -251,61 +252,92 @@ void Chunk(Mat total) {
 
 	//just a y
 	cout << "The location as recorded is " << xloc << " " << yloc << endl;
-	if (abs(runningdistance.x-previousrunningdistance.x) >= 312 || abs(runningdistance.y - previousrunningdistance.y) >= 312) {
-		/*---------------------------if it fills another in the ydirection-------------------------------*/
-		//look up and down of the current position yloc
-		if (abs(runningdistance.x - previousrunningdistance.x) >= 312) {
-			cout << "Trying to fill a x" << endl;
-			cout << "The adjust of y is " << runningdistance.x << endl;
+	if (firstchunk == true) {
+		if (total.cols >= 312 && total.rows >= 312) {
+			Mat temp = total(Rect(0,0, 312, 312));
+			previouscols = total.cols;
+			previousrows = total.rows;
 
-			if (runningdistance.x > previousrunningdistance.x) {
-				xprevious++;
-				xloc++;
-				movementx = "right";
-			}
-			else if (runningdistance.x < previousrunningdistance.x) {
-				xprevious--;
-				xloc--;
-				movementx = "left";
-			}
+			stringstream ss;
+			ss << folder << "image" << xloc << " " << yloc << ".png";
+			string filename = ss.str();
+			imwrite(filename, temp);
+
+			previousrunningdistance.y = 312;
+			previousrunningdistance.x = 312;
+			runningdistance.x = 312;
+			runningdistance.y = 312;
+			firstchunk = false;
 		}
-		else {
-			if (runningdistance.y < previousrunningdistance.y) {
-				yprevious++;
-				yloc++;
-				movementy = "up";
+	}
+	else {
+		if (abs(runningdistance.x - previousrunningdistance.x) >= 312 || abs(runningdistance.y - previousrunningdistance.y) >= 312) {
+			/*---------------------------if it fills another in the ydirection-------------------------------*/
+			//look up and down of the current position yloc
+			Mat temp;
+			if (abs(runningdistance.x - previousrunningdistance.x) >= 312) {
+				cout << "Trying to fill a x" << endl;
+				cout << "The adjust of y is " << runningdistance.x << endl;
+
+				if (runningdistance.x > previousrunningdistance.x) {
+					xprevious++;
+					xloc++;
+					movement = "right";
+					temp = total(Rect(abs(total.cols - previouscols), abs(total.rows - previousrows), 312, 312));
+				}
+				else if (runningdistance.x < previousrunningdistance.x) {
+					xprevious--;
+					xloc--;
+					movement = "left";
+					temp = total(Rect(0, abs(total.rows - previousrows), 312, 312));
+				}
 			}
-			else if (runningdistance.y > previousrunningdistance.y) {
-				yprevious--;
-				yloc--;
-				movementy = "down";
+			if (abs(runningdistance.y - previousrunningdistance.y) >= 312) {
+				if (runningdistance.y < previousrunningdistance.y) {
+					yprevious++;
+					yloc++;
+					movement = "up";
+					temp = total(Rect(abs(total.cols - previouscols), 0, 312, 312));
+				}
+				else if (runningdistance.y > previousrunningdistance.y) {
+					yprevious--;
+					yloc--;
+					movement = "down";
+					temp = total(Rect(abs(total.cols - previouscols), abs(total.rows - previousrows), 312, 312));
+				}
 			}
+
+			/*--------------------adjustment set for change in direction-----------------------*/
+
+			cout << "The current movement is " << movement << " and the previous movment is " << previousmovement << endl;
+			cout << "The totalcols and totalrows before and after are" << previousrows << " " << total.rows << " " << previouscols << " " << total.cols << endl;
+
+			
+
+
+
+			stringstream ss;
+			ss << folder << "image" << xloc << " " << yloc << ".png";
+			string filename = ss.str();
+			imwrite(filename, temp);
+
+			if (abs(runningdistance.x - previousrunningdistance.x) >= 312) {
+				previousrunningdistance.x = runningdistance.x;
+				
+			}
+			if (abs(runningdistance.y - previousrunningdistance.y) >= 312) {
+				previousrunningdistance.y = runningdistance.y;
+				
+			}
+
+			previouscols = total.cols;
+			previousrows = total.rows;
+
+			previousmovement = movement;
+
+
+
 		}
-		
-		/*--------------------adjustment set for change in direction-----------------------*/
-
-
-		Mat temp;
-		cout << "The current movement is " << movementx << " and the previous movment is " << previousmovementx << endl;
-		cout << "The current movement is " << movementy << " and the previous movment is " << previousmovementy << endl;
-		
-				temp = total(Rect(0, 0, 312, 312));
-		
-
-		
-		stringstream ss;
-		ss << folder << "image" << xloc << " " << yloc << ".png";
-		string filename = ss.str();
-		imwrite(filename, temp);
-
-		if (abs(runningdistance.x - previousrunningdistance.x) >= 312) {
-			previousrunningdistance.x = runningdistance.x;
-		}
-		else {
-			previousrunningdistance.y = runningdistance.y;
-		}
-		previousmovementx = movementx;
-		previousmovementy = movementy;
 	}
 
 }
@@ -702,6 +734,8 @@ int main(int, char* argv[])
 					tempwidth += 50;
 					tempheight += 50;
 					imgs.clear();
+
+					previousrunningdistance = Point2f(0, 0);
 				}
 				else {
 					matchingpoints1.clear();
