@@ -58,7 +58,7 @@ float collectiveangle = 0;
 
 string movement = "";
 string previousmovement = "";
-string folder = "C:/Users/Loki Rasmussen/Documents/GitHub/ChunkedTerrain/";
+string folder = "C:/Users/swri11/Documents/GitHub/ChunkedTerrain/";
 
 using namespace cv;
 using namespace std;
@@ -275,6 +275,9 @@ void Chunk(Mat total) {
 			/*---------------------------if it fills another in the ydirection-------------------------------*/
 			//look up and down of the current position yloc
 			Mat temp;
+			int adjustx = 0;
+			
+
 			if (abs(runningdistance.x - previousrunningdistance.x) >= 312) {
 				cout << "Trying to fill a x" << endl;
 				cout << "The adjust of y is " << runningdistance.x << endl;
@@ -282,14 +285,18 @@ void Chunk(Mat total) {
 				if (runningdistance.x > previousrunningdistance.x) {
 					xprevious++;
 					xloc++;
+				
+			
 					movement = "right";
-					temp = total(Rect(abs(total.cols - previouscols), abs(total.rows - previousrows), 312, 312));
+
+					temp = total(Rect(abs(total.cols - (previouscols+adjustoffsetx)), abs(total.rows - (previousrows+adjustoffsety)), 312, 312));
 				}
 				else if (runningdistance.x < previousrunningdistance.x) {
 					xprevious--;
 					xloc--;
 					movement = "left";
-					temp = total(Rect(0, abs(total.rows - previousrows), 312, 312));
+				
+					temp = total(Rect(0, abs(total.rows - (previousrows+adjustoffsety)), 312, 312));
 				}
 			}
 			if (abs(runningdistance.y - previousrunningdistance.y) >= 312) {
@@ -297,13 +304,15 @@ void Chunk(Mat total) {
 					yprevious++;
 					yloc++;
 					movement = "up";
-					temp = total(Rect(abs(total.cols - previouscols), 0, 312, 312));
+					
+					temp = total(Rect(abs(total.cols - (previouscols+adjustoffsetx)), 0, 312, 312));
 				}
 				else if (runningdistance.y > previousrunningdistance.y) {
 					yprevious--;
 					yloc--;
 					movement = "down";
-					temp = total(Rect(abs(total.cols - previouscols), abs(total.rows - previousrows), 312, 312));
+				
+					temp = total(Rect(abs(total.cols - (previouscols+adjustoffsetx)), abs(total.rows - (previousrows+adjustoffsety)), 312, 312));
 				}
 			}
 
@@ -311,9 +320,6 @@ void Chunk(Mat total) {
 
 			cout << "The current movement is " << movement << " and the previous movment is " << previousmovement << endl;
 			cout << "The totalcols and totalrows before and after are" << previousrows << " " << total.rows << " " << previouscols << " " << total.cols << endl;
-
-			
-
 
 
 			stringstream ss;
@@ -323,15 +329,16 @@ void Chunk(Mat total) {
 
 			if (abs(runningdistance.x - previousrunningdistance.x) >= 312) {
 				previousrunningdistance.x = runningdistance.x;
-				
+				previouscols = total.cols;
 			}
 			if (abs(runningdistance.y - previousrunningdistance.y) >= 312) {
 				previousrunningdistance.y = runningdistance.y;
-				
+				previousrows = total.rows;
 			}
 
-			previouscols = total.cols;
-			previousrows = total.rows;
+
+			
+			
 
 			previousmovement = movement;
 
